@@ -1,3 +1,9 @@
+"""
+Students: Irene Cantero (U151206) & Jian Chen (U150279)
+Project Title: INFORMATION RETRIEVAL - FINAL PROJECT
+DATE: 06/12/2020
+Content description: this module contains all the functions to normalize the text.
+"""
 import nltk
 from nltk.stem import PorterStemmer
 from nltk.tokenize import word_tokenize, RegexpTokenizer

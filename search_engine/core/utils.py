@@ -1,3 +1,9 @@
+"""
+Students: Irene Cantero (U151206) & Jian Chen (U150279)
+Project Title: INFORMATION RETRIEVAL - FINAL PROJECT
+DATE: 06/12/2020
+Content description: this module contains functions useful to adapt the data to our purposes
+"""
 import pandas as pd
 
 
@@ -28,7 +34,7 @@ def unique_tweets(data: pd.DataFrame) -> pd.DataFrame:
 def get_original_tweets(data: pd.DataFrame) -> pd.DataFrame:
     result = {}
     i = 0
-    
+
     for tweet in range(len(data)):
         if str(data["retweeted_status"][tweet]) != "nan":
             result[i] = data["retweeted_status"][tweet]
@@ -37,28 +43,3 @@ def get_original_tweets(data: pd.DataFrame) -> pd.DataFrame:
         drop=True
     )
     return unique_tweets(result_dataframe)
-
-
-def binary_search(arr, x):
-    low = 0
-    high = len(arr) - 1
-    mid = 0
-
-    while low <= high:
-
-        mid = (high + low) // 2
-
-        # Check if x is present at mid
-        if arr[mid] < x:
-            low = mid + 1
-
-        # If x is greater, ignore left half
-        elif arr[mid] > x:
-            high = mid - 1
-
-        # If x is smaller, ignore right half
-        else:
-            return False
-
-    # If we reach here, then the element was not present
-    return True

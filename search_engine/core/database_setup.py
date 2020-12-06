@@ -1,3 +1,9 @@
+"""
+Students: Irene Cantero (U151206) & Jian Chen (U150279)
+Project Title: INFORMATION RETRIEVAL - FINAL PROJECT
+DATE: 06/12/2020
+Content description: this module removes irrelevant tweet information and sets up the search engine output
+"""
 import pandas as pd
 
 # Normalize functions:
@@ -7,7 +13,6 @@ class TwitterDatabaseSetup:
     def __init__(self, data: pd.DataFrame):
         self.data = data
 
-    # NO SALEN HASHTAGS NI DEL TEXT NI DE ENTITIES.MIRAR RETWEETED STATUS Y TIENE QUE DEVOLVER
     def get_hashtags(self, data: pd.DataFrame) -> list:
         hashtags_list = []
         if len(data["hashtags"]) < 1:

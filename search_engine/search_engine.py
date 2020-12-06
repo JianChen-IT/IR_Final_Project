@@ -1,3 +1,9 @@
+"""
+Students: Irene Cantero (U151206) & Jian Chen (U150279)
+Project Title: INFORMATION RETRIEVAL - FINAL PROJECT
+DATE: 06/12/2020
+Content description: this module contains the search engine core functions, and all the needed setup to make it work.
+"""
 from .core.tweet_collector import MyStreamListener
 from .core.database_setup import TwitterDatabaseSetup
 from .core.text_normalizer import Normalizer
@@ -9,21 +15,21 @@ import pandas as pd
 import numpy as np
 import os.path as path
 
+# Flags to avoid loading all the data or prevent the collection. False = 0. True = 1
 GET_TWEETS = 0
 LOAD_ALL = 0
 OUTPUT_FILENAME = "other-outputs/tweets_US_Election_2020.json"
 
-
+# Core function to run the search engine. Everything class is connected here to make the search engine work
 class SearchEngine:
-
-    ## access token informations
     def __init__(self):
+        # Tweepy access tokens initialization
         self.access_token1 = "1222829174802538496-AXkAccE1dWMjuEFlEYChpgOibc6SbF"
         self.access_token_secret1 = "jtr66CvVvspsANplSBpuMEQR5iLwK2fRtzM6aDhaC1rZT"
 
         self.consumer_key1 = "sL9E5QL83DVEshfttLjEEj930"
         self.consumer_secret1 = "R9L4Ar7UWTKB4WQw7cEoybumyTInZ6pYP3cQ5GFlWYFllYAeec"
-
+        # Twitter API initialization
         self.auth = OAuthHandler(self.consumer_key1, self.consumer_secret1)
         self.auth.set_access_token(self.access_token1, self.access_token_secret1)
         self.api = API(
@@ -31,24 +37,30 @@ class SearchEngine:
             wait_on_rate_limit=True,
             wait_on_rate_limit_notify=True,
         )
+        # These are the attributes to be able to run all functions of the search engine
 
-        self.json_election_file = []
-        self.tweets = pd.DataFrame()
-        self.original_tweets = pd.DataFrame()
-        self.query_results = pd.DataFrame()
-        self.query_results_with_g = pd.DataFrame()
-        self.ranking_system = None
-        self.database_setup = None
-        self.tfidf = []
-        self.setup()
+        self.tweets = pd.DataFrame()  # Contains all the tweets collected
+        self.original_tweets = (
+            pd.DataFrame()
+        )  # Contains only the original tweets, not the retweets
+        self.query_results = (
+            pd.DataFrame()
+        )  # Simplified database of original_tweets, only containing relevant information
+        self.query_results_with_g = (
+            pd.DataFrame()
+        )  # Same as query_results, but we did not wanted to overwrite query_results, when running with our custom scoring function
+        self.ranking_system = None  # Needed for the ranking of the tweets
+        self.database_setup = None  # used for giving shape for tweets, query_results and query_results_with_g by removing columns, and easing the Twitter API tweet structure
+        # self.tfidf = []
+        self.setup()  # Running the initialization of the Search engine
 
+    # Function that collects and calls the rest of the functions
     def setup(self):
         if GET_TWEETS:
             stop_condition = 100000
+            # Collection of tweets
             l = MyStreamListener(self.api, OUTPUT_FILENAME, stop_condition)
-            # here we recall the Stream Class from Tweepy to input the authentication info and our personalized listener
             stream = Stream(auth=self.api.auth, listener=l)
-
             # keywords we may want decide to track
             TRACKING_KEYWORDS = [
                 "Donald",
@@ -64,44 +76,58 @@ class SearchEngine:
                 "Votes",
                 "States",
             ]
-
             stream.filter(track=TRACKING_KEYWORDS, is_async=False, languages=["en"])
+        # After collection of tweets continue with the initialization
         self.initialize()
-        self.results()
+        # Initialization of the attributes
+        self.attributes_initialization()
 
+    # Creates the dataframe for all tweets and for the original tweets.
     def initialize(self):
         stop_condition = 10000
         i = 0
+        json_election_file = []
+        # Read the json file , append it to a dictionary and create the dataframe
         for line in open(OUTPUT_FILENAME, "r"):
+            # if the flag is activated, append all. If not, stop reading in the stop_condition
             if LOAD_ALL:
-                self.json_election_file.append(json.loads(line))
+                json_election_file.append(json.loads(line))
             else:
                 if i >= stop_condition:
                     break
                 else:
-                    self.json_election_file.append(json.loads(line))
+                    json_election_file.append(json.loads(line))
                 i += 1
         dict_tweets = {}
         i = 0
-        for tweet in self.json_election_file:
+        for tweet in json_election_file:
             dict_tweets[i] = tweet
             i += 1
 
+        # Creation of the dataframe with the collected tweets
         self.tweets = pd.DataFrame.from_dict(
             dict_tweets, orient="index"
         ).drop_duplicates(subset=["id"])
+
+        # Filtering to only get the original tweets
         self.original_tweets = get_original_tweets(self.tweets)
 
         self.tweets.reset_index(level=0, inplace=True, drop=True)
+        # Some tweets are truncated, force to have the full text
         set_full_text(self.tweets)
+        # Revoming https links
         remove_links(self.tweets)
 
         self.original_tweets.reset_index(level=0, inplace=True, drop=True)
         remove_links(self.original_tweets)
         self.normalizer = Normalizer()
+
+        # Creating a copy of the text, because the "text" field will be normalized. However, in the ranking results,
+        # we still want to show the original text. Otherwise, is difficult to read after applying the normalization proccess
         self.tweets["original_text"] = self.tweets["text"]
         self.original_tweets["original_text"] = self.original_tweets["text"]
 
+        # Normalization process for tweets and original_tweets
         for i in range(len(self.tweets)):
             self.tweets["text"][i] = self.normalizer.text_normalization(
                 self.tweets["text"][i]
@@ -111,34 +137,46 @@ class SearchEngine:
                 self.original_tweets["text"][i]
             )
 
-    def results(self):
+    def attributes_initialization(self):
+        # query_results and query_results_g are assigned with the relevant documents set at the function "run" and "run_g"
         self.database_setup = TwitterDatabaseSetup(self.original_tweets)
         self.query_results = self.database_setup.get_tweet_data()
         self.query_results_with_g = self.database_setup.get_tweet_data()
         self.ranking_system = RankingSystem(self.original_tweets)
         self.database_setup_tweets = TwitterDatabaseSetup(self.tweets)
         self.tweets = self.database_setup_tweets.remove_unnecessary_columns()
-        self.tfidf = self.ranking_system.tf_idf(self.original_tweets["text"].tolist())
+        # self.tfidf = self.ranking_system.tf_idf(self.original_tweets["text"].tolist())
 
+    # Function to run TF-IDF + Cosine similarity or Word2Vec + Cosine similarity,
+    # depending on the flag defined in the RankingSystem
     def run(self, query):
+        # Query normalization
         query = self.normalizer.text_normalization(query)
+        # Relevant documents identification
         relevant_documents = self.ranking_system.search(query)
+        # Relevant document scoring
         relevant_documents_score = self.ranking_system.cosine_similarity(
             query, relevant_documents
         )
+        # Score assignation
         self.query_results["score"] = pd.DataFrame(np.zeros(len(self.query_results)))
         i = 0
         for document in relevant_documents:
             self.query_results["score"][document] = relevant_documents_score[i]
             i += 1
+
+        # Sort by descending score
         query_results_sorted = self.query_results.sort_values(
             by=["score"], ascending=False
         )
 
         return query_results_sorted.reset_index(drop=True)
 
+    # It runs using the custom score G(d) that we have the defined
     def run_g(self, query):
+        # Initialize by running the normal run, this is the base for us
         self.query_results_with_g = self.run(query)
+        # Adding G(d)
         self.query_results_with_g = self.ranking_system.g_d_score(
             self.query_results_with_g
         )
@@ -146,6 +184,7 @@ class SearchEngine:
             np.zeros(len(self.original_tweets))
         )
         index = 0
+        # Assigning total Score by adding TF-IDF + g(d)
         for score in self.query_results_with_g["score"]:
             if score > 0:
                 self.query_results_with_g["total_score"][index] = (
@@ -153,6 +192,7 @@ class SearchEngine:
                     + self.query_results_with_g["g(d)"][index]
                 )
             index += 1
+        # Sort by descending total score
         query_results_sorted_with_g = self.query_results_with_g.sort_values(
             by=["total_score"], ascending=False
         )

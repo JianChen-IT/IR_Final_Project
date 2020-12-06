@@ -1,10 +1,16 @@
+"""
+Students: Irene Cantero (U151206) & Jian Chen (U150279)
+Project Title: INFORMATION RETRIEVAL - FINAL PROJECT
+DATE: 06/12/2020
+Content description: this module contains the tweet collector. This code has been taken from Scrapping Tweets practice of IR
+"""
 import pandas as pd
 import numpy as np
 from gensim.models import Word2Vec
 import enum
 import itertools
 
-
+# Options to let the user choose the word embedding
 class Options(enum.Enum):
     TF_IDF = 1
     WORD2VEC = 2
@@ -42,7 +48,6 @@ class RankingSystem:
                     inv_index[word] = [doc_num]
         return inv_index
 
-    # REMOVE THIS FUNCTION, THERE MUST BE A LIBRARY THAT DOES THIS
     def tf_idf_normalization(self, tf_idf: list) -> None:
         D_square = np.zeros(len(tf_idf))
         for i in range(len(tf_idf)):
@@ -138,9 +143,7 @@ class RankingSystem:
 
         return cosine_similarity
 
-    def g_d_score(
-        self, data: pd.DataFrame
-    ) -> pd.DataFrame:  # Hay que pasar tweets database
+    def g_d_score(self, data: pd.DataFrame) -> pd.DataFrame:
         # retweets -> 3/6; likes -> 2/6; replies -> 1/6
         # We did not consider the followers of the users, as it would bias the importance
         # Of each tweet. Someone with a lot of followers could write something irrelevant to the query and unfairly, get a higher

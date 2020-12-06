@@ -1,3 +1,9 @@
+"""
+Students: Irene Cantero (U151206) & Jian Chen (U150279)
+Project Title: INFORMATION RETRIEVAL - FINAL PROJECT
+DATE: 06/12/2020
+Content description: this module contains the tweet collector. This code has been taken from Scrapping Tweets practice of IR
+"""
 from tweepy.streaming import StreamListener
 from tweepy import OAuthHandler, Stream, API, Cursor
 import json
@@ -20,7 +26,6 @@ class MyStreamListener(StreamListener):
         """
         this function runs each time a new bunch of tweets is retrived from the streaming
         """
-        # Only get retweeted status, since when streaming the likes, comments and retweets are 0
         with open(self.filename, "a+") as f:
             tweet = status._json
             f.write(json.dumps(tweet) + "\n")
