@@ -23,12 +23,8 @@ class MyStreamListener(StreamListener):
         # Only get retweeted status, since when streaming the likes, comments and retweets are 0
         with open(self.filename, "a+") as f:
             tweet = status._json
-            if (
-                "retweeted_status" in tweet.keys()
-                and tweet["retweeted_status"]["lang"] == "en"
-            ):
-                f.write(json.dumps(tweet["retweeted_status"]) + "\n")
-                self.num_tweets += 1
+            f.write(json.dumps(tweet) + "\n")
+            self.num_tweets += 1
 
             if self.num_tweets <= self.stop_condition:
                 return True

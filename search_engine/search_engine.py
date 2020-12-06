@@ -2,7 +2,7 @@ from .core.tweet_collector import MyStreamListener
 from .core.database_setup import TwitterDatabaseSetup
 from .core.text_normalizer import Normalizer
 from .core.tweet_ranking import RankingSystem
-from .core.utils import unique_tweets
+from .core.utils import unique_tweets, set_full_text, remove_links, get_original_tweets
 import json
 from tweepy import OAuthHandler, Stream, API, Cursor
 import pandas as pd
@@ -34,6 +34,7 @@ class SearchEngine:
 
         self.json_election_file = []
         self.tweets = pd.DataFrame()
+        self.original_tweets = pd.DataFrame()
         self.query_results = pd.DataFrame()
         self.query_results_with_g = pd.DataFrame()
         self.ranking_system = None
@@ -43,19 +44,33 @@ class SearchEngine:
 
     def setup(self):
         if GET_TWEETS:
-            stop_condition = 1000
+            stop_condition = 100000
             l = MyStreamListener(self.api, OUTPUT_FILENAME, stop_condition)
             # here we recall the Stream Class from Tweepy to input the authentication info and our personalized listener
             stream = Stream(auth=self.api.auth, listener=l)
 
             # keywords we may want decide to track
-            TRACKING_KEYWORDS = ["Donald", "Trump", "Joe", "Biden", "America", "USA"]
-            stream.filter(track=TRACKING_KEYWORDS, is_async=False)
+            TRACKING_KEYWORDS = [
+                "Donald",
+                "Trump",
+                "Joe",
+                "Biden",
+                "America",
+                "USA",
+                "fraud",
+                "Pennsylvania",
+                "Georgia" "Republicans",
+                "Democrats",
+                "Votes",
+                "States",
+            ]
+
+            stream.filter(track=TRACKING_KEYWORDS, is_async=False, languages=["en"])
         self.initialize()
         self.results()
 
     def initialize(self):
-        stop_condition = 1000
+        stop_condition = 10000
         i = 0
         for line in open(OUTPUT_FILENAME, "r"):
             if LOAD_ALL:
@@ -75,22 +90,35 @@ class SearchEngine:
         self.tweets = pd.DataFrame.from_dict(
             dict_tweets, orient="index"
         ).drop_duplicates(subset=["id"])
-        self.tweets.reset_index(level=0, inplace=True)
-        # self.tweets = unique_tweets(self.tweets)
+        self.original_tweets = get_original_tweets(self.tweets)
+
+        self.tweets.reset_index(level=0, inplace=True, drop=True)
+        set_full_text(self.tweets)
+        remove_links(self.tweets)
+
+        self.original_tweets.reset_index(level=0, inplace=True, drop=True)
+        remove_links(self.original_tweets)
         self.normalizer = Normalizer()
+        self.tweets["original_text"] = self.tweets["text"]
+        self.original_tweets["original_text"] = self.original_tweets["text"]
+
         for i in range(len(self.tweets)):
             self.tweets["text"][i] = self.normalizer.text_normalization(
                 self.tweets["text"][i]
             )
+        for i in range(len(self.original_tweets)):
+            self.original_tweets["text"][i] = self.normalizer.text_normalization(
+                self.original_tweets["text"][i]
+            )
 
     def results(self):
-        twitter_database = TwitterDatabaseSetup(self.tweets)
-        self.query_results = twitter_database.get_tweet_data()
-        self.query_results_with_g = twitter_database.get_tweet_data()
-        self.ranking_system = RankingSystem(self.tweets)
-        self.database_setup = TwitterDatabaseSetup(self.tweets)
-        self.tweets = self.database_setup.remove_unnecessary_columns()
-        self.tfidf = self.ranking_system.tf_idf(self.tweets["text"].tolist())
+        self.database_setup = TwitterDatabaseSetup(self.original_tweets)
+        self.query_results = self.database_setup.get_tweet_data()
+        self.query_results_with_g = self.database_setup.get_tweet_data()
+        self.ranking_system = RankingSystem(self.original_tweets)
+        self.database_setup_tweets = TwitterDatabaseSetup(self.tweets)
+        self.tweets = self.database_setup_tweets.remove_unnecessary_columns()
+        self.tfidf = self.ranking_system.tf_idf(self.original_tweets["text"].tolist())
 
     def run(self, query):
         query = self.normalizer.text_normalization(query)
@@ -107,7 +135,7 @@ class SearchEngine:
             by=["score"], ascending=False
         )
 
-        return query_results_sorted.reset_index()
+        return query_results_sorted.reset_index(drop=True)
 
     def run_g(self, query):
         self.query_results_with_g = self.run(query)
@@ -115,7 +143,7 @@ class SearchEngine:
             self.query_results_with_g
         )
         self.query_results_with_g["total_score"] = pd.DataFrame(
-            np.zeros(len(self.tweets))
+            np.zeros(len(self.original_tweets))
         )
         index = 0
         for score in self.query_results_with_g["score"]:
@@ -129,4 +157,4 @@ class SearchEngine:
             by=["total_score"], ascending=False
         )
 
-        return query_results_sorted_with_g.reset_index()
+        return query_results_sorted_with_g.reset_index(drop=True)

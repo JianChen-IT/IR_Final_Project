@@ -8,18 +8,14 @@ class TwitterDatabaseSetup:
         self.data = data
 
     # NO SALEN HASHTAGS NI DEL TEXT NI DE ENTITIES.MIRAR RETWEETED STATUS Y TIENE QUE DEVOLVER
-    def get_hashtags(self, data: pd.DataFrame) -> None:
-        hashtag_list = []
-        for i in range(len(data)):
-            hashtags = []
-            try:
-                hashtags_info = data["entities"]["hashtags"]
-            except:
-                hashtags_info = data["entities"][i]["hashtags"]
-            for i in range(len(hashtags_info)):
-                hashtags.append(hashtags_info[i]["text"])
-            hashtag_list.append(hashtags)
-        data["hashtags"] = hashtag_list
+    def get_hashtags(self, data: pd.DataFrame) -> list:
+        hashtags_list = []
+        if len(data["hashtags"]) < 1:
+            return []
+        else:
+            for i in range(len(data["hashtags"])):
+                hashtags_list.append(data["hashtags"][i]["text"])
+        return hashtags_list
 
     def remove_unnecessary_columns(self) -> pd.DataFrame:
         cols_to_remove = [
@@ -58,27 +54,9 @@ class TwitterDatabaseSetup:
         tweets_retweets = []
         tweets_replies = []
         tweets_url = []
+
         for tweet in range(len(self.data)):
-
-            if self.data["truncated"][tweet] == False:
-                tweets_text.append(self.data["text"][tweet])
-                tweets_hashtags.append(self.get_hashtags(self.data))
-            else:
-                tweets_text.append(self.data["extended_tweet"][tweet]["full_text"])
-                tweets_hashtags.append(
-                    self.get_hashtags(self.data["extended_tweet"][tweet])
-                )
-
-            tweets_date.append(self.data["created_at"][tweet])
-            tweets_username.append(self.data["user"][tweet]["name"])
-            tweets_url.append(
-                "https://twitter.com/i/web/status/" + self.data["id_str"][tweet]
-            )
-            tweets_likes.append(self.data["favorite_count"][tweet])
-            tweets_retweets.append(self.data["retweet_count"][tweet])
-            tweets_replies.append(self.data["reply_count"][tweet])
-            # else:
-            """
+            try:
                 tweets_text.append(self.data["retweeted_status"][tweet]["text"])
                 # We supposed it is the name and not the @name (screen_name)
                 tweets_username.append(
@@ -86,7 +64,9 @@ class TwitterDatabaseSetup:
                 )
                 tweets_date.append(self.data["retweeted_status"][tweet]["created_at"])
                 tweets_hashtags.append(
-                    self.get_hashtags((self.data["retweeted_status"][tweet]))
+                    self.get_hashtags(
+                        (self.data["retweeted_status"][tweet]["entities"])
+                    )
                 )
                 tweets_likes.append(
                     self.data["retweeted_status"][tweet]["favorite_count"]
@@ -94,10 +74,36 @@ class TwitterDatabaseSetup:
                 tweets_retweets.append(
                     self.data["retweeted_status"][tweet]["retweet_count"]
                 )
-            tweets_url.append(
-                "https://twitter.com/i/web/status/" + self.data["id_str"][tweet]
-            )
-            """
+                tweets_url.append(
+                    "https://twitter.com/i/web/status/" + self.data["id_str"][tweet]
+                )
+                tweets_replies.append(
+                    self.data["retweeted_status"][tweet]["reply_count"]
+                )
+            except:
+                if self.data["truncated"][tweet] == False:
+                    tweets_text.append(self.data["original_text"][tweet])
+                    if self.get_hashtags(self.data["entities"][tweet]) is not None:
+                        tweets_hashtags.append(
+                            self.get_hashtags(self.data["entities"][tweet])
+                        )
+                else:
+                    tweets_text.append(self.data["extended_tweet"][tweet]["full_text"])
+                    tweets_hashtags.append(
+                        self.get_hashtags(
+                            self.data["extended_tweet"][tweet]["entities"]
+                        )
+                    )
+
+                tweets_date.append(self.data["created_at"][tweet])
+                tweets_username.append(self.data["user"][tweet]["name"])
+                tweets_url.append(
+                    "https://twitter.com/i/web/status/" + self.data["id_str"][tweet]
+                )
+                tweets_likes.append(self.data["favorite_count"][tweet])
+                tweets_retweets.append(self.data["retweet_count"][tweet])
+                tweets_replies.append(self.data["reply_count"][tweet])
+
         tweet_info = {
             "Tweet": tweets_text,
             "Username": tweets_username,

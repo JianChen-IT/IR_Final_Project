@@ -1,11 +1,34 @@
 import pandas as pd
 import numpy as np
+from gensim.models import Word2Vec
+import enum
+import itertools
+
+
+class Options(enum.Enum):
+    TF_IDF = 1
+    WORD2VEC = 2
 
 
 class RankingSystem:
     def __init__(self, tweets: pd.DataFrame) -> None:
+        # print("What ranking mode do you want?")
+        # print("1. TF-IDF")
+        # print("2. WORD2VEC")
+        self.user_input = 1
         self.tweets = tweets
         self.inv_index = self.inverted_index(tweets)
+        self.w2v = self.word2vec_initialization()
+
+    def change_user_output(self, user_input: str) -> None:
+        self.user_input = user_input
+
+    def word2vec_initialization(self) -> Word2Vec:
+        words = [tweet.split() for tweet in self.tweets["text"]]
+        w2v_model = Word2Vec(
+            sentences=words, size=100, window=10, min_count=10, negative=15, sg=1
+        )
+        return w2v_model
 
     def inverted_index(self, data: pd.DataFrame) -> dict:
         inv_index = {}
@@ -65,18 +88,45 @@ class RankingSystem:
         for word in query.split():
             query_vector[word] = query_tf_idf[0][word]
 
+    def similar_words(self, content: str) -> list:
+        similar_queries = []
+        for word in content.split():
+            similar_queries.append(
+                [similar_word[0] for similar_word in self.w2v.most_similar(word)[:3]]
+            )
+        return similar_queries
+
     def search(self, query) -> list:
         result = set()
         documents = []
+
         for term in query.split():
-            documents.append(set(self.inv_index[term]))
+            try:
+                documents.append(set(self.inv_index[term]))
+            except:
+                print(f"No related tweets found for the query: '{query}'")
+        if int(self.user_input) == int(Options.WORD2VEC.value):
+            alternative_documents = []
+            alternative_queries = self.similar_words(query)
+            for alternative_query in alternative_queries:
+                for term in alternative_query:
+                    try:
+                        alternative_documents.append(set(self.inv_index[term]))
+                    except:
+                        print(
+                            f"No related tweets found for the query: '{alternative_query}'"
+                        )
         result = set.intersection(*documents)
+        if int(self.user_input) == int(Options.WORD2VEC.value):
+            alternative_result = set.intersection(*alternative_documents)
+            result = set.union(result, alternative_result)
         return list(result)
 
     def cosine_similarity(self, query: str, documents: list) -> float:
         cosine_similarity = np.zeros(len(documents))
         relevant_documents = pd.DataFrame(self.tweets, index=documents)
         relevant_documents_score = self.tf_idf(relevant_documents["text"].tolist())
+
         i = 0
         for document in relevant_documents_score:
             vectorized_doc = list(document.values())
@@ -98,7 +148,6 @@ class RankingSystem:
         gd_score = []
         data["g(d)"] = pd.DataFrame(np.zeros(len(data)))
         for tweet in range(len(data)):
-            # if str(row[1]["retweeted_status"]) == "nan":
             retweets_score = data["Retweets"][tweet]
             likes_score = data["Likes"][tweet]
             replies_score = data["Replies"][tweet]
@@ -109,20 +158,6 @@ class RankingSystem:
             )
             data["g(d)"][tweet] = score
             gd_score.append(score)
-            """
-            else:
-                retweets_score = row[1]["retweeted_status"]["retweet_count"]
-                likes_score = row[1]["retweeted_status"]["favorite_count"]
-                replies_score = row[1]["retweeted_status"]["reply_count"]
-                score = (
-                    (3 / 6) * int(retweets_score)
-                    + (2 / 6) * int(likes_score)
-                    + (1 / 6) * int(replies_score)
-                )
-                gd_score.append(score)
-            """
-        print(f"max score: {max(gd_score)}")
-        print(f"min score: {min(gd_score)}")
 
         for tweet in range(len(data)):
             try:
