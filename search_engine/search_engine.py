@@ -14,10 +14,11 @@ from tweepy import OAuthHandler, Stream, API, Cursor
 import pandas as pd
 import numpy as np
 import os.path as path
+import time
 
 # Flags to avoid loading all the data or prevent the collection. False = 0. True = 1
-GET_TWEETS = 0
-LOAD_ALL = 0
+GET_TWEETS = 1
+LOAD_ALL = 1
 OUTPUT_FILENAME = "other-outputs/tweets_US_Election_2020.json"
 
 # Core function to run the search engine. Everything class is connected here to make the search engine work
@@ -56,6 +57,7 @@ class SearchEngine:
 
     # Function that collects and calls the rest of the functions
     def setup(self):
+        start = time.time()
         if GET_TWEETS:
             stop_condition = 100000
             # Collection of tweets
@@ -77,6 +79,8 @@ class SearchEngine:
                 "States",
             ]
             stream.filter(track=TRACKING_KEYWORDS, is_async=False, languages=["en"])
+        end = time.time()
+        print(f"Collection time: {end - start }")
         # After collection of tweets continue with the initialization
         self.initialize()
         # Initialization of the attributes
@@ -84,7 +88,7 @@ class SearchEngine:
 
     # Creates the dataframe for all tweets and for the original tweets.
     def initialize(self):
-        stop_condition = 10000
+        stop_condition = 100000
         i = 0
         json_election_file = []
         # Read the json file , append it to a dictionary and create the dataframe
