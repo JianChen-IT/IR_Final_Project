@@ -5,6 +5,7 @@ DATE: 06/12/2020
 Content description: this module contains functions useful to adapt the data to our purposes
 """
 import pandas as pd
+import math
 
 
 def set_full_text(data: pd.DataFrame) -> None:
@@ -14,6 +15,15 @@ def set_full_text(data: pd.DataFrame) -> None:
                 data["text"][tweet] = data["extended_tweet"][tweet]["full_text"]
             except:
                 data["text"][tweet] = data["retweeted_status"][tweet]["text"]
+
+
+def normalize_vector(vector: list):
+    denominator = 0
+    sum_ = 0
+    for number in vector:
+        sum_ += number ** 2
+    denominator = math.sqrt(sum_)
+    return [number / denominator for number in vector]
 
 
 def remove_links(data: pd.DataFrame) -> None:

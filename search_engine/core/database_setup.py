@@ -6,22 +6,25 @@ Content description: this module removes irrelevant tweet information and sets u
 """
 import pandas as pd
 
-# Normalize functions:
-
 
 class TwitterDatabaseSetup:
+    # The initialization of this class gets as input the dataframe to be modified.
     def __init__(self, data: pd.DataFrame):
         self.data = data
 
+    # Collection of hashtags through the "entities" field
     def get_hashtags(self, data: pd.DataFrame) -> list:
         hashtags_list = []
+        # If there are no hashtags, then return empty list
         if len(data["hashtags"]) < 1:
             return []
+        # Otherwise return the list of hashtags
         else:
             for i in range(len(data["hashtags"])):
                 hashtags_list.append(data["hashtags"][i]["text"])
         return hashtags_list
 
+    # Simple function to remove columns that are not used for the search engine
     def remove_unnecessary_columns(self) -> pd.DataFrame:
         cols_to_remove = [
             "id",
@@ -47,10 +50,16 @@ class TwitterDatabaseSetup:
         data = self.data.drop(columns=cols_to_remove)
         return data
 
-    # retweeted_status only exists if the tweet has been retweeted by someone. If not, extended_tweet exists if Truncated is true.
+    # The idea of this function is to get the most relevant information. This includes: Tweet| Username | Date | Hashtags | Likes | Retweets | Url
+    # Often, the information of the Likes, replies and hashtags are stored in the retweeted_status, but this field  only exists if the tweet is a retweet.
     # If both are not the case, we use directly the information given in the tweet.
+
+    # This is not needed in our use case, but we also support when there is the field "extended_tweet", which exists when the truncated field is true and
+    # the tweet is not a retweet (no retweeted_status).
+
+    # The strategy followed here is to create a DataFrame only with the relevant data to be shown to the user.
     def get_tweet_data(self) -> pd.DataFrame:
-        #  Tweet| Username | Date | Hashtags | Likes | Retweets | Url
+
         tweets_text = []
         tweets_username = []
         tweets_date = []
@@ -60,31 +69,42 @@ class TwitterDatabaseSetup:
         tweets_replies = []
         tweets_url = []
 
+        # For each tweet...
         for tweet in range(len(self.data)):
+            # If the retweeted status exists, get the data from there
             try:
                 tweets_text.append(self.data["retweeted_status"][tweet]["text"])
-                # We supposed it is the name and not the @name (screen_name)
+                # We get the name of the user
                 tweets_username.append(
                     self.data["retweeted_status"][tweet]["user"]["name"]
                 )
+                # Get the date of creation
                 tweets_date.append(self.data["retweeted_status"][tweet]["created_at"])
+                # Get the hashtags
                 tweets_hashtags.append(
                     self.get_hashtags(
                         (self.data["retweeted_status"][tweet]["entities"])
                     )
                 )
+                # Get likes
                 tweets_likes.append(
                     self.data["retweeted_status"][tweet]["favorite_count"]
                 )
+                # Get the number of retweets
                 tweets_retweets.append(
                     self.data["retweeted_status"][tweet]["retweet_count"]
                 )
+                # Get the URL
                 tweets_url.append(
                     "https://twitter.com/i/web/status/" + self.data["id_str"][tweet]
                 )
+                # Get the number of replies
                 tweets_replies.append(
                     self.data["retweeted_status"][tweet]["reply_count"]
                 )
+            # If not, check if it is truncated or not, to get the text from there. (This is irrelevant, because in the
+            # initialization we already get the full text, but we leave it, because if we continue this project in the future
+            # this might be needed)
             except:
                 if self.data["truncated"][tweet] == False:
                     tweets_text.append(self.data["original_text"][tweet])
@@ -100,13 +120,19 @@ class TwitterDatabaseSetup:
                         )
                     )
 
+                # Get the creation date
                 tweets_date.append(self.data["created_at"][tweet])
+                # Get the user name
                 tweets_username.append(self.data["user"][tweet]["name"])
+                # Get the URL
                 tweets_url.append(
                     "https://twitter.com/i/web/status/" + self.data["id_str"][tweet]
                 )
+                # Get the number of likes
                 tweets_likes.append(self.data["favorite_count"][tweet])
+                # Get the number of retweets
                 tweets_retweets.append(self.data["retweet_count"][tweet])
+                # Get the number of replies
                 tweets_replies.append(self.data["reply_count"][tweet])
 
         tweet_info = {
