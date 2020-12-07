@@ -76,7 +76,7 @@ class RankingSystem:
                 else:
                     tf_doc_i[word] = 1
             tf.append(tf_doc_i)
-        # IDF computation, taking advante of the inverted index.
+        # IDF computation, taking advantage of the inverted index.
         # We use the inverted index, because it has the df, which is the length of each word list
         for word in self.inv_index:
             df[word] = len(self.inv_index[word])
@@ -184,12 +184,14 @@ class RankingSystem:
         return cosine_similarity
 
     def g_d_score(self, data: pd.DataFrame) -> pd.DataFrame:
-        # retweets -> 3/6; likes -> 2/6; replies -> 1/6
-        # We did not consider the followers of the users, as it would bias the importance
-        # Of each tweet. Someone with a lot of followers could write something irrelevant to the query and unfairly, get a higher
-        # punctuation than someone with not so many followers that wrote a relevant tweet (with a lot of likes/retweets/replies).
+        # g(d) = num_retweets·3/6 + num_likes·2/6 + num_replies·1/6
+        # We did not consider the followers of the users, as it would bias the importance Of each tweet; i.e. someone with a lot of followers could write something 
+        # irrelevant to the query and unfairly, get a higher punctuation than someone with not so many followers that wrote a relevant tweet.
         gd_score = []
+        # Create a column to store the score of g(d)
         data["g(d)"] = pd.DataFrame(np.zeros(len(data)))
+
+        # Apply g(d) and store it in the created column g(d)
         for tweet in range(len(data)):
             retweets_score = data["Retweets"][tweet]
             likes_score = data["Likes"][tweet]
@@ -202,6 +204,7 @@ class RankingSystem:
             data["g(d)"][tweet] = score
             gd_score.append(score)
 
+        # Normalize the score to narrow the range to [0,1], because otherwise the scores would have way too big numbers.
         for tweet in range(len(data)):
             try:
                 data["g(d)"][tweet] = (float(data["g(d)"][tweet]) - min(gd_score)) / (

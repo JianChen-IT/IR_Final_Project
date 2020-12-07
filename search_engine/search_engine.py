@@ -8,7 +8,7 @@ from .core.tweet_collector import MyStreamListener
 from .core.database_setup import TwitterDatabaseSetup
 from .core.text_normalizer import Normalizer
 from .core.tweet_ranking import RankingSystem
-from .core.utils import unique_tweets, set_full_text, remove_links, get_original_tweets
+from .core.utils import set_full_text, remove_links, get_original_tweets
 import json
 from tweepy import OAuthHandler, Stream, API, Cursor
 import pandas as pd
