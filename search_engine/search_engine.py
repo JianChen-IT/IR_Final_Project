@@ -59,7 +59,7 @@ class SearchEngine:
     def setup(self):
         start = time.time()
         if GET_TWEETS:
-            stop_condition = 100000
+            stop_condition = 1000
             # Collection of tweets
             l = MyStreamListener(self.api, OUTPUT_FILENAME, stop_condition)
             stream = Stream(auth=self.api.auth, listener=l)
@@ -88,7 +88,7 @@ class SearchEngine:
 
     # Creates the dataframe for all tweets and for the original tweets.
     def initialize(self):
-        stop_condition = 1000
+        stop_condition = 10000
         i = 0
         json_election_file = []
         # Read the json file , append it to a dictionary and create the dataframe
@@ -193,7 +193,7 @@ class SearchEngine:
             if score > 0:
                 self.query_results_with_g["total_score"][index] = (
                     self.query_results_with_g["score"][index]
-                    + self.query_results_with_g["g(d)"][index]
+                    * self.query_results_with_g["g(d)"][index]
                 )
             index += 1
         # Sort by descending total score
