@@ -31,7 +31,7 @@ class RankingSystem:
         self.w2v = self.word2vec_initialization()
 
     # Auxiliar function to change the default word embedding
-    def change_user_output(self, user_input: str) -> None:
+    def change_user_input(self, user_input: str) -> None:
         self.user_input = user_input
 
     # Function to initialize the Word2Vec model
@@ -185,7 +185,7 @@ class RankingSystem:
 
     def g_d_score(self, data: pd.DataFrame) -> pd.DataFrame:
         # g(d) = num_retweets·3/6 + num_likes·2/6 + num_replies·1/6
-        # We did not consider the followers of the users, as it would bias the importance Of each tweet; i.e. someone with a lot of followers could write something 
+        # We did not consider the followers of the users, as it would bias the importance Of each tweet; i.e. someone with a lot of followers could write something
         # irrelevant to the query and unfairly, get a higher punctuation than someone with not so many followers that wrote a relevant tweet.
         gd_score = []
         # Create a column to store the score of g(d)

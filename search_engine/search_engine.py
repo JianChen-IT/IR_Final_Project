@@ -18,7 +18,7 @@ import time
 
 # Flags to avoid loading all the data or prevent the collection. False = 0. True = 1
 GET_TWEETS = 0
-LOAD_ALL = 0
+LOAD_ALL = 1
 OUTPUT_FILENAME = "other-outputs/tweets_US_Election_2020.json"
 
 # Core function to run the search engine. Everything class is connected here to make the search engine work

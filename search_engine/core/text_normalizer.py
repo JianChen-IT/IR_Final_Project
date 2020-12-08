@@ -64,7 +64,7 @@ class Normalizer:
         # 2. Remove punctuations
         text_normalized = self.punctuation_removal(text_decontracted)
         # 3. Remove stop words
-        text_without_stopwords = self.remove_stop_words(text_stemmed)
+        text_without_stopwords = self.remove_stop_words(text_normalized)
         # 3. Stem the text
-        text_stemmed = self.stemming(text_normalized)
-        return " ".join(text_without_stopwords)
+        text_stemmed = self.stemming(text_without_stopwords)
+        return " ".join(text_stemmed)

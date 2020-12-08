@@ -1,5 +1,5 @@
 # Information retrieval - Final Project
-This repository contains the delivery of the Information Retrieval Final Project, subject taught in the UPF (1st Term 2020). The content of this report contains the recommended structure provided by the Project Guidelines provided by Prof.Fabbri.
+This repository contains the delivery of the Information Retrieval Final Project, subject taught in the UPF (1st Term 2020). The content of this report contains the recommended structure provided by the Project Guidelines.
 
 ## Content
 
@@ -23,7 +23,7 @@ Without considering the GitHub repo:
 - _Subsection RQ1_
     - List of 10 selected queries
     - Answer to Question d
-    - Output given by t-sne
+    - Output given by T-SNE
     - Answer to question RQ 1A - reasoning and plots may help.
     - Answer to question RQ 1B - a table for each cluster may help.
 
@@ -41,17 +41,106 @@ Without considering the GitHub repo:
 ### Section 1 - Data Collection
 
 **1.1 Information about the data collection** 
+
 This subsection contains the number of original tweets and the number of retweets.
+
+- Total number of tweets: 100.000
+
 - Original tweets number: 
 - Number of retweets:
 
 **1.2 Keywords used for the data collection**
+
 The keywords used for the data collection was to try to get as much tweets as possible about the US Elections. Here are the keywords:  _Donald, Trump, Joe, Biden, America, USA, fraud, Pennsylvania, Georgia, Republicans, Democrats, Votes, States_. By selecting these keywords, we tried to summarize the main topics about the US Elections, and the words have been selected by watching the latest news, no scientific method used here.
 
 **1.3 Time needed to collect the data**
+
 The time spent to collect 100k data has been quite long, and we tried to parallelize the process. However, the Twitter API do not allow to have more than 1 process per account running. Here is the time that we needed to collect 100k
-- Data collection time for 100k Tweets:
+
+- Data collection time for 100k Tweets = 2000s = 33 min
 
 ### Section 2 - Search Engine
 **2.1 Preprocessing strategy**
-The 
+
+The preprocessing strategy was the first big obstacle that we had to face and we spent most of the project time tuning it. At the end we end it up with the following pipeline:
+
+_Collection_
+
+- 1st: Collection of tweets using the StreamListener of Tweepy and save it a JSON file that we named it _tweets_US_Election_2020.json_
+
+_Initialization_
+
+- 2nd: Read the JSON file containing the tweets to a pandas dataframe, in order to be able to manipulate the data afterwards easily.
+
+- 3rd: Set the real text of each tweet, because some of them are truncated and we need the full content to output the ranking. 
+
+- 4th: Since the collected tweets are a mix of original tweets and retweets, we created a second dataframe only containing the original tweets. To do so, we transformed all the retweets to original tweets by getting the `retweeted_status` field. However, that lead us to have repeated tweets (The same tweet can be retweeted infinite times), so to avoid that we dropped duplications. 
+
+  This approach might not be the best, because perhaps the information that we get is not fully updated (we can get a tweet that is not the most updated,but pruned instead), but we did not wanted to spend more time here, since the practice goal is not this one. Everything said, the collected data is good enough to use it as the database of the ranking system.
+
+_Normalization_
+
+- 5th: Remove the links of each tweet, because we considered them not necessary for the ranking system.
+- 6th: Text normalization, which includes:
+  - Decompression of words: some words are shorten (do not = don't). We created a set of substitutions to transform "don't" to "do not"
+  - Punctuation removal: deleting punctuation such as (",", ".", ";", etc.)
+  - Removal of stop words: stop words are the most frequent words and they affect the final output of the ranking system. So, we just removed them. We also added the word "RT" to the stop word list, because that word does not give significant information, it is just a flag to indicate if it is a retweet or not.
+  - Stemming: to significantly reduce the vocabulary to only "root" words
+
+_Results presentation_
+
+- 7th: creation of a simplified database that will only contain the output shown to the user. This database is only used to tell the search engine the set of tweets to be shown, all the operations are done in the attribute "original_tweets".  
+
+_Search engine_
+
+- 8th: the search engine is executed with the functions `run` or `run_g`, which corresponds to:
+  - Run: run TF-IDF + Cosine similarity or Word2Vec + Cosine similarity. By default it runs TF-IDF, but you can choose to use Word2Vec by calling the function `change_user_input()` located in `tweet_ranking.py`. If you put `1`, it will set TF-IDF as the model, but if you put 2, it will set Word2Vec as the model.
+  - Run_g: run our custom scoring function, which considers the number of retweets, replies and likes counters.
+
+**2.2 WordCloud**
+
+The wordcloud has been generated by considering the inverted index. A word will be more relevant if it appears in many documents. This is the result:
+
+[image]
+
+**2.3 Bar plot of the most frequent words**
+
+Here is the bar plot of the most frequent words:
+
+[image]
+
+**2.4 Custom score explanation**
+
+Our scoring function is simple and only contains the mandatory fields requested in the project. This is the scoring function:
+
+- score = (TF-IDF/Word2Vec + Cosine Similarity) + 3/6 * num_retweets + 2/6 * num_likes + 1/6 * replies_count
+
+We added more weight to the number of retweets, because we thought that the retweet is the main source of expansion. The number of likes is in the second position, since it also contributes in the tweet positioning within Twitter. Finally, we have the replies count that we think that it does not add much value.
+
+Here we have 2 images, where the first image is TF-IDF + Cosine Similarity and the second one is the custom score:
+
+[image] [image]
+
+**Section 3 - RQs**
+
+_Subsection RQ1_
+
+The queries we have selected for testing are short, because the fact that the search is performed including ALL the words of the query, as requested in the project statement, and if we put many words very few tweets will satisfy AND condition. The thought behind those queries are extracted by our knowledge about the US elections. Here are the queries:
+
+- _joe biden won elections_
+- _donald trump is the president_
+- _elections are a fraud_
+- _pennsylvania_
+- _trump out_
+- _votes are fraud_
+- _i voted_
+- _trump team_
+- _biden team_
+
+_Can you imagine a better representation than word2vec? Justify your answer. (**HINT** - what about Doc2vec? Sentence2vec? Which are the pros and cons?)_
+
+Word2Vec representation gives a representation of the semantics of each word, while Sentence2Vec and Doc2Vec gives semantics [FALTA POR RESPONDER]
+
+
+
+As shown in the query suggestion practice, the problem with word2vec is that a word cannot be embedded if it is not in the dictionary. There are many cases where the user fails putting the right word and that might lead to a potential failure of the search engine. In class we thought an alternative that is FastText, which allow[...]

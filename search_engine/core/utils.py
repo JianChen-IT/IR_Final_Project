@@ -55,9 +55,12 @@ def get_original_tweets(data: pd.DataFrame) -> pd.DataFrame:
     # It iterates each tweet finding the retweeted status and replace the retweet by
     # the content of the retweeted status.
     for tweet in range(len(data)):
-        if str(data["retweeted_status"][tweet]) != "nan":
-            result[i] = data["retweeted_status"][tweet]
-            i += 1
+        try:
+            if str(data["retweeted_status"][tweet]) != "nan":
+                result[i] = data["retweeted_status"][tweet]
+                i += 1
+        except:
+            pass
     # Creates a dataframe containing the original tweets
     result_dataframe = pd.DataFrame.from_dict(result, orient="index").reset_index(
         drop=True
