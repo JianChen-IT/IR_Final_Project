@@ -11,7 +11,7 @@ The search engine has a database a file that must be located and named `other-ou
 from search_engine.search_engine import SearchEngine
 
 print("Insert your query:\n")
-query = Input()
+query = input()
 search_engine.run(query).query("score > 0").head(20)
 ```
 
@@ -22,19 +22,18 @@ from search_engine.search_engine import SearchEngine
 
 search_engine.ranking_system.change_user_input(2) # Add this line to change the mode to Word2Vec
 print("Insert your query:\n")
-query = Input()
+query = input()
 search_engine.run(query).query("score > 0").head(20)
 ```
 
 *To run our custom score:*
 
-```
+```python
 from search_engine.search_engine import SearchEngine
 
-search_engine.ranking_system.change_user_input(1) # or 2 if you want it with Word2Vec
 print("Insert your query:\n")
-query = Input()
-search_engine.run_g(query).query("score > 0").head(20)
+query = input()
+search_engine.run_custom_score(query).query("score > 0").head(20)
 ```
 
 *To collect data:*

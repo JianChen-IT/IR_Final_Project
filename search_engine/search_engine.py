@@ -88,7 +88,7 @@ class SearchEngine:
 
     # Creates the dataframe for all tweets and for the original tweets.
     def initialize(self):
-        stop_condition = 10000
+        stop_condition = 1000
         i = 0
         json_election_file = []
         # Read the json file , append it to a dictionary and create the dataframe
