@@ -27,7 +27,10 @@ def normalize_vector(vector: list):
     for number in vector:
         sum_ += number ** 2
     denominator = math.sqrt(sum_)
-    return [number / denominator for number in vector]
+    try:
+        return [number / denominator for number in vector]
+    except:
+        return [0 for number in vector]
 
 
 # Links removal, used in the setup of the search_engine.py, because we considered that links should not

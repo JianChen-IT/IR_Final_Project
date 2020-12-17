@@ -18,7 +18,7 @@ import time
 
 # Flags to avoid loading all the data or prevent the collection. False = 0. True = 1
 GET_TWEETS = 0
-LOAD_ALL = 1
+LOAD_ALL = 0
 OUTPUT_FILENAME = "other-outputs/tweets_US_Election_2020.json"
 
 # Core function to run the search engine. Everything class is connected here to make the search engine work
@@ -47,19 +47,19 @@ class SearchEngine:
         self.query_results = (
             pd.DataFrame()
         )  # Simplified database of original_tweets, only containing relevant information
-        self.query_results_with_g = (
+        self.query_results_custom_score = (
             pd.DataFrame()
         )  # Same as query_results, but we did not wanted to overwrite query_results, when running with our custom scoring function
         self.ranking_system = None  # Needed for the ranking of the tweets
-        self.database_setup = None  # used for giving shape for tweets, query_results and query_results_with_g by removing columns, and easing the Twitter API tweet structure
-        # self.tfidf = []
+        self.ranking_system_ex_3 = None  # We need a different ranking system considering all the tweets and retweets for ex.3B
+        self.database_setup = None  # used for giving shape for tweets, query_results and query_results_custom_score by removing columns, and easing the Twitter API tweet structure
         self.setup()  # Running the initialization of the Search engine
 
     # Function that collects and calls the rest of the functions
     def setup(self):
         start = time.time()
         if GET_TWEETS:
-            stop_condition = 1000
+            stop_condition = 10000
             # Collection of tweets
             l = MyStreamListener(self.api, OUTPUT_FILENAME, stop_condition)
             stream = Stream(auth=self.api.auth, listener=l)
@@ -145,11 +145,11 @@ class SearchEngine:
         # query_results and query_results_g are assigned with the relevant documents set at the function "run" and "run_g"
         self.database_setup = TwitterDatabaseSetup(self.original_tweets)
         self.query_results = self.database_setup.get_tweet_data()
-        self.query_results_with_g = self.database_setup.get_tweet_data()
+        self.query_results_custom_score = self.database_setup.get_tweet_data()
         self.ranking_system = RankingSystem(self.original_tweets)
+        self.ranking_system_ex_3 = RankingSystem(self.tweets)
         self.database_setup_tweets = TwitterDatabaseSetup(self.tweets)
         self.tweets = self.database_setup_tweets.remove_unnecessary_columns()
-        # self.tfidf = self.ranking_system.tf_idf(self.original_tweets["text"].tolist())
 
     # Function to run TF-IDF + Cosine similarity or Word2Vec + Cosine similarity,
     # depending on the flag defined in the RankingSystem
@@ -176,29 +176,21 @@ class SearchEngine:
 
         return query_results_sorted.reset_index(drop=True)
 
-    # It runs using the custom score G(d) that we have the defined
-    def run_g(self, query):
-        # Initialize by running the normal run, this is the base for us
-        self.query_results_with_g = self.run(query)
-        # Adding G(d)
-        self.query_results_with_g = self.ranking_system.g_d_score(
-            self.query_results_with_g
+    # It runs using the custom score Doc2Vec*G(d) that we have the defined
+    def run_custom_score(self, query):
+        # Query normalization
+        query = self.normalizer.text_normalization(query)
+        # Relevant documents identification
+        relevant_documents = self.ranking_system.search(query)
+
+        self.ranking_system.custom_score(
+            self.query_results_custom_score, query, relevant_documents
         )
-        self.query_results_with_g["total_score"] = pd.DataFrame(
-            np.zeros(len(self.original_tweets))
-        )
-        index = 0
-        # Assigning total Score by adding TF-IDF + g(d)
-        for score in self.query_results_with_g["score"]:
-            if score > 0:
-                self.query_results_with_g["total_score"][index] = (
-                    self.query_results_with_g["score"][index]
-                    * self.query_results_with_g["g(d)"][index]
-                )
-            index += 1
         # Sort by descending total score
-        query_results_sorted_with_g = self.query_results_with_g.sort_values(
-            by=["total_score"], ascending=False
+        query_results_sorted_with_custom_score = (
+            self.query_results_custom_score.sort_values(
+                by=["custom_score"], ascending=False
+            )
         )
 
-        return query_results_sorted_with_g.reset_index(drop=True)
+        return query_results_sorted_with_custom_score.reset_index(drop=True)

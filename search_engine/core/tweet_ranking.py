@@ -7,6 +7,8 @@ Content description: this module contains the tweet collector. This code has bee
 import pandas as pd
 import numpy as np
 from gensim.models import Word2Vec
+from gensim.models.doc2vec import Doc2Vec, TaggedDocument
+from gensim.utils import simple_preprocess
 import enum
 import itertools
 import math
@@ -29,6 +31,7 @@ class RankingSystem:
         self.tweets = tweets
         self.inv_index = self.inverted_index(tweets)
         self.w2v = self.word2vec_initialization()
+        self.d2v = self.doc2vec_initialization()
 
     # Auxiliar function to change the default word embedding
     def change_user_input(self, user_input: str) -> None:
@@ -41,6 +44,25 @@ class RankingSystem:
             sentences=words, size=100, window=10, min_count=1, negative=15, sg=1
         )
         return w2v_model
+
+    def doc2vec_initialization(self) -> Doc2Vec:
+        tweets_ = []
+        i = 0
+        # Preparing the data to be put in Doc2Vec
+        for line in self.tweets["text"]:
+            tokens = simple_preprocess(line)
+            tweets_.append(TaggedDocument(tokens, [i]))
+            i += 1
+        # Train the data and return
+        d2v_model = Doc2Vec(
+            documents=tweets_,
+            vector_size=100,
+            window=2,
+            min_count=1,
+            negative=0,
+            workers=4,
+        )
+        return d2v_model
 
     # The inverted index is a list, each instance has the shape: -->
     # |Word: [doc1, doc2, ..., docn]|, where [doc1, doc2, ..., docn] are the documents that contains the Word.
@@ -76,6 +98,7 @@ class RankingSystem:
                 else:
                     tf_doc_i[word] = 1
             tf.append(tf_doc_i)
+
         # IDF computation, taking advantage of the inverted index.
         # We use the inverted index, because it has the df, which is the length of each word list
         for word in self.inv_index:
@@ -87,11 +110,10 @@ class RankingSystem:
         # Computing the TF-IDF for each document
         for doc in range(len(docs)):
             tf_idf_per_doc = {}
-            for word in tf[doc]:
+            for word in docs[doc].split():
                 # Applying the formula of TF-IDF --> 1+log10(tf) * idf (Formula taken from p.34 of IR-WA-2.pdf)
                 tf_idf_per_doc[word] = (1 + np.log10(tf[doc][word])) * idf[word]
             tf_idf.append(tf_idf_per_doc)
-        # self.tf_idf_normalization(tf_idf)
         return tf_idf
 
     # Function to compute the TF-IDF of the query
@@ -122,7 +144,7 @@ class RankingSystem:
             except:
                 # If the term is not in the inverted index, return nothing
                 print(f"No related tweets found for the query: '{query}'")
-
+                return
         result = set.intersection(*documents)
         return list(result)
 
@@ -168,10 +190,18 @@ class RankingSystem:
             # TF-IDF case, the query embedding is done using TF-IDF, the rest is the same as in the Word2Vec case
             i = 0
             for document in relevant_documents_score:
-                vectorized_doc = normalize_vector(list(document.values()))
+                document_plus_query = set(query.split()) | set(document.keys())
+                doc = {}
+                for key in document_plus_query:
+                    if key in document.keys():
+                        doc.update({key: document[key]})
+                    else:
+                        doc.update({key: 0})
+
+                vectorized_doc = normalize_vector(list(doc.values()))
                 # Initialization of the query with the keys of the documents. This is done, because we must have the same size for the query vector
                 # document vector.
-                vectorized_query = {key: 0 for key in document.keys()}
+                vectorized_query = {key: 0 for key in document_plus_query}
                 # Computing the query TF-IDF
                 self.query_tfidf(query, vectorized_query)
                 vectorized_query_values = normalize_vector(
@@ -183,15 +213,28 @@ class RankingSystem:
 
         return cosine_similarity
 
-    def g_d_score(self, data: pd.DataFrame) -> pd.DataFrame:
-        # g(d) = num_retweets·3/6 + num_likes·2/6 + num_replies·1/6
+    def run_doc2vec(self, input_: str):
+        # Infer the vector to be able to let Doc2Vec do Cosine similarity
+        embedded_input = self.d2v.infer_vector(input_.split())
+        # Perform cosine similarity for every tweet and return it sorted
+        recommendations = self.d2v.docvecs.most_similar(
+            [embedded_input], topn=len(self.tweets)
+        )
+        recommendation_positions = [document[0] for document in recommendations]
+        recommendation_score = [document[1] for document in recommendations]
+        return recommendation_positions, recommendation_score
+
+    def custom_score(
+        self, data: pd.DataFrame, query: str, document_indices: list
+    ) -> pd.DataFrame:
+        # custom_score = num_retweets·3/6 + num_likes·2/6 + num_replies·1/6
         # We did not consider the followers of the users, as it would bias the importance Of each tweet; i.e. someone with a lot of followers could write something
         # irrelevant to the query and unfairly, get a higher punctuation than someone with not so many followers that wrote a relevant tweet.
-        gd_score = []
-        # Create a column to store the score of g(d)
-        data["g(d)"] = pd.DataFrame(np.zeros(len(data)))
-
-        # Apply g(d) and store it in the created column g(d)
+        custom_score_ = []
+        # Create a column to store the score of custom_score
+        data["custom_score"] = pd.DataFrame(np.zeros(len(data)))
+        recommendation_positions, recommendation_scores = self.run_doc2vec(query)
+        # Apply custom_score and store it in the created column custom_score
         for tweet in range(len(data)):
             retweets_score = data["Retweets"][tweet]
             likes_score = data["Likes"][tweet]
@@ -201,15 +244,18 @@ class RankingSystem:
                 + (2 / 6) * int(likes_score)
                 + (1 / 6) * int(replies_score)
             )
-            data["g(d)"][tweet] = score
-            gd_score.append(score)
+            data["custom_score"][tweet] = score
+            custom_score_.append(score)
 
         # Normalize the score to narrow the range to [0,1], because otherwise the scores would have way too big numbers.
         for tweet in range(len(data)):
             try:
-                data["g(d)"][tweet] = (float(data["g(d)"][tweet]) - min(gd_score)) / (
-                    max(gd_score) - min(gd_score)
-                )
+                if tweet in document_indices:
+                    data["custom_score"][tweet] = (
+                        float(data["custom_score"][tweet]) - min(custom_score_)
+                    ) / (max(custom_score_) - min(custom_score_))
+                    data["custom_score"][tweet] *= recommendation_scores[tweet]
+                else:
+                    data["custom_score"][tweet] = 0
             except:
                 continue
-        return data
